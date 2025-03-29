@@ -105,3 +105,6 @@ while running:
     clock.tick(30)
 
 pygame.quit()
+#TODO CAZZO
+#git config --global user.name "IlTuoNome"
+#git config --global user.email "tuaemail@example.com"
