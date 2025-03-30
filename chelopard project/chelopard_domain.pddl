@@ -1,12 +1,10 @@
 ;file di dominio chephalopod
-;Header and description
-
 (define (domain chephalopod_domain)
 
-;remove requirements that are not needed(TEOria estensione pddl :nel momento incui scrivi la parola chiave define domain ti appaiono tutti i campi che sono definibili)
+;remove requirements that are not needed(Teoria estensione pddl :nel momento incui scrivi la parola chiave define domain ti appaiono tutti i campi che sono definibili)
 (:requirements :strips :typing :negative-preconditions)
 (:types cella dado giocatore valore)
-
+;predicati per definire stati
 (:predicates 
 (occupata ?c - cella)
 (dado_appartiene_a ?d - dado ?p - giocatore)
@@ -14,8 +12,7 @@
 (adiacenti ?c1 - cella ?c2 - cella)
 (turno ?p - giocatore)
 )  
-
-;define actions here
+;azioni qui
 (:action piazzo_dado
     :parameters (?p - giocatore ?d - dado ?c - cella ?v -valore)
     :precondition (and (not (occupata ?c)) (turno ?p))
