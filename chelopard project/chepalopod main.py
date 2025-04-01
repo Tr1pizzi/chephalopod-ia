@@ -1,107 +1,148 @@
 import random
-import pygame
 
-class CephalopodAI:
-    def __init__(self):
-        self.board = [[None for _ in range(5)] for _ in range(5)]  # 5x5 board
-        self.player_turn = True  # True if it's the player's turn, False for AI
+def generate_cephalopod_problem(filename="cephalopod_problem.pddl"):
+    grid_size = 5
+    players = ["human", "ai"]
+    num_dice_per_player = 24  # Ogni giocatore ha 24 dadi disponibili
     
-    def is_valid_move(self, x, y):
-        return self.board[x][y] is None  # A move is valid if the cell is empty
-    
-    def get_valid_moves(self):
-        return [(x, y) for x in range(5) for y in range(5) if self.is_valid_move(x, y)]
-    
-    def get_adjacent_dice(self, x, y):
-        adjacent = []
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < 5 and 0 <= ny < 5 and self.board[nx][ny]:
-                adjacent.append((nx, ny, self.board[nx][ny]))
-        return adjacent
-    
-    def evaluate_move(self, x, y):
-        adjacent = self.get_adjacent_dice(x, y)
-        capture_value = sum(d[2] for d in adjacent if len(adjacent) >= 2 and sum(d[2] for d in adjacent) <= 6)
-        board_control = len(adjacent)
-        return capture_value + board_control
-    
-    def minimax(self, depth, maximizing):
-        if depth == 0:
-            return None, None, None, -1
+    # Creazione del file PDDL
+    with open(filename, "w") as f:
+        f.write("(define (problem cephalopod-instance)\n")
+        f.write("  (:domain chephalopod_domain)\n")
         
-        best_score = float('-inf') if maximizing else float('inf')
-        best_move = None
+        # Dichiarazione degli oggetti
+        f.write("  (:objects\n")
+        for x in range(grid_size):
+            for y in range(grid_size):
+                f.write(f"    cella-{x}-{y} - cella\n")
+        for p in players:
+            f.write(f"    {p} - giocatore\n")
+        for i in range(num_dice_per_player):
+            f.write(f"    dado-umano-{i} - dado\n")
+            f.write(f"    dado-ai-{i} - dado\n")
+        for v in range(1, 7):
+            f.write(f"    valore-{v} - valore\n")
+        f.write("  )\n")
         
-        for x, y in self.get_valid_moves():
-            score = self.evaluate_move(x, y)
-            if (maximizing and score > best_score) or (not maximizing and score < best_score):
-                best_score = score
-                best_move = (x, y, sum(d[2] for d in self.get_adjacent_dice(x, y)) if self.can_capture(x, y) else 1)
+        # Stato iniziale con scacchiera vuota
+        f.write("  (:init\n")
+        for x in range(grid_size):
+            for y in range(grid_size):
+                f.write(f"    (not (occupata cella-{x}-{y}))\n")
+        f.write("    (turno human)\n")  # Il giocatore umano inizia sempre
+        f.write("  )\n")
         
-        return best_move if best_move else random.choice(self.get_valid_moves()) + (1,), best_score
+        # Obiettivo: almeno un dado sulla griglia alla fine
+        f.write("  (:goal (exists (?c - cella) (occupata ?c)))\n")
+        f.write(")\n")
     
-    def can_capture(self, x, y):
-        adjacent = self.get_adjacent_dice(x, y)
-        if len(adjacent) >= 2:
-            sum_pips = sum(d[2] for d in adjacent)
-            return sum_pips <= 6
-        return False
+    print(f"File {filename} generato con successo!")
+
+# Implementazione dell'euristica Min-Max con Alpha-Beta Pruning
+def evaluate_state(stato):
+    """ Valuta lo stato attuale del gioco con una funzione più avanzata """
+    punteggio = 0
+    for cella, poss_dado in stato.items():
+        if poss_dado == "ai":
+           punteggio += 10  # Ogni dado IA sulla scacchiera vale 10 punti
+           x, y = map(int, cella.split('-')[1:])
+           if 1 <= x <= 3 and 1 <= y <= 3:  # Celle centrali
+                score += 5  # Più punti per il controllo del centro
+            # Controllo catture
+           for cella_adiacente in get_adjacent_cells(cella):
+                if stato.get(cella_adiacente) == "human":  # Se vicino c'è un dado avversario
+                    score += 20  # Premia la possibilità di cattura
+        elif poss_dado == "human":
+            score -= 10  # Penalizza i dadi avversari sulla scacchiera
+    return score
+
+import random
+
+def minimax(state, depth, alpha, beta, maximizing_player):
+    """ Algoritmo Minimax con Alpha-Beta Pruning """
     
-    def play_turn(self):
-        move, _ = self.minimax(2, True)
-        x, y, value = move
-        self.board[x][y] = value
-        print(f"AI plays at ({x}, {y}) with value {value}")
+    # 1️⃣ Condizione di terminazione: fine gioco o profondità massima
+    if depth == 0 or is_terminal(state):
+        return evaluate_state(state), None
+
+    best_move = None  
+
+    if maximizing_player:  # Turno dell'IA (massimizza)
+        max_eval = float('-inf')  
         
-        adjacent = self.get_adjacent_dice(x, y)
-        sum_pips = sum(d[2] for d in adjacent)
-        if sum_pips <= 6:
-            for nx, ny, _ in adjacent:
-                self.board[nx][ny] = None
-        self.player_turn = True  # Give turn back to player
+        for move in get_possible_moves(state, "ai"):
+            new_state = apply_move(state, move, "ai")  # Simula la mossa
+            
+            eval_score, _ = minimax(new_state, depth - 1, alpha, beta, False)  # Turno umano
+            if eval_score > max_eval:
+                max_eval = eval_score
+                best_move = move
 
-# Game rendering with pygame
-def draw_board(screen, board):
-    screen.fill((255, 255, 255))
-    for x in range(5):
-        for y in range(5):
-            rect = pygame.Rect(y * 100, x * 100, 100, 100)
-            pygame.draw.rect(screen, (0, 0, 0), rect, 2)
-            if board[x][y]:
-                font = pygame.font.Font(None, 36)
-                text = font.render(str(board[x][y]), True, (0, 0, 0))
-                screen.blit(text, (y * 100 + 40, x * 100 + 40))
+            alpha = max(alpha, eval_score)
+            if beta <= alpha:
+                break  # Alpha-Beta Pruning
 
-def handle_player_move(game, x, y, value):
-    if game.is_valid_move(x, y):
-        game.board[x][y] = value
-        game.player_turn = False  # Switch to AI turn
+        return max_eval, best_move
 
-game = CephalopodAI()
-pygame.init()
-screen = pygame.display.set_mode((500, 500))
-clock = pygame.time.Clock()
-running = True
-player_value = 1  # Default value for player's dice
+    else:  # Turno dell'umano (minimizza)
+        min_eval = float('inf')
+        
+        for move in get_possible_moves(state, "human"):
+            new_state = apply_move(state, move, "human")  # Simula la mossa
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN and game.player_turn:
-            mx, my = pygame.mouse.get_pos()
-            grid_x, grid_y = my // 100, mx // 100
-            handle_player_move(game, grid_x, grid_y, player_value)
-        elif event.type == pygame.KEYDOWN:
-            if pygame.K_1 <= event.key <= pygame.K_6:
-                player_value = event.key - pygame.K_0
+            eval_score, _ = minimax(new_state, depth - 1, alpha, beta, True)  # Torna all'IA
+            if eval_score < min_eval:
+                min_eval = eval_score
+                best_move = move
+
+            beta = min(beta, eval_score)
+            if beta <= alpha:
+                break  # Alpha-Beta Pruning
+        
+        return min_eval, best_move
+
+
+def is_terminal(stato):
+    """ Controlla se lo stato è terminale (es. nessuna mossa possibile) """
+    return not any(get_possible_moves(stato,"ai"))and not any(get_possible_moves(stato,"human"))
+
+def get_possible_moves(stato, player):
+    """ Restituisce tutte le mosse possibili per un giocatore """
+    mosse = []
+    for cell, occupata in stato.items():
+        if not occupata:
+            mosse.append(cell)
+    return mosse
+
+def apply_move(stato, move, player):
+    """ Applica una mossa e cattura eventuali dadi avversari """
+    new_state = stato.copy()
+    new_state[move] = player
+
+    # Controlla se ci sono dadi avversari catturabili
+    for adj_cell in get_adjacent_cells(move):
+        if stato.get(adj_cell) and stato[adj_cell] != player:
+            if get_dice_value(move) >= get_dice_value(adj_cell):
+                new_state[adj_cell] = player  # Cattura il dado avversario
     
-    if not game.player_turn:
-        game.play_turn()
-    
-    draw_board(screen, game.board)
-    pygame.display.flip()
-    clock.tick(30)
+    return new_state
 
-pygame.quit()
+def get_adjacent_cells(cella):
+    """ Restituisce le celle adiacenti valide """
+    x, y = map(int, cella.split('-')[1:])
+    adiacenti = []
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]: #verifica che vi siano delle celle a [nord sud est e ovest rispetto alla cella di cui vogliamo andare a verificare le adiacenza possibili]
+        nx, ny = x + dx, y + dy #somma le coordinate alle nostre correnti in maniera iterativa
+        if 0 <= nx < 5 and 0 <= ny < 5:# se la somma non da vita ad una cordianta il cui valore supera il numero di righe o colonne presenti all'interno della nostra scacchiera 
+            adiacenti.append(f"cella-{nx}-{ny}")#aggiunta la cella all'array contenenti le celli adiacenti alla cella presa in esame e passata  come parametro della funzione 
+    return adiacenti #ritorno l'array
+
+def get_dice_value(stato, cella):
+    """ Restituisce il valore effettivo del dado in una cella, se esiste """
+    if cella in stato and stato[cella] is not None: #verifica che la cella esiste all'interno della schacchiera altrimenti si verifica un key-error se cosi fosse allora verifica ulteriormente che non sia vuota 
+        return stato[cella]["valore"]  # Restituisce il valore effettivo del dado
+    return None  # Nessun dado in quella cella
+
+
+# Esegui lo script per generare il file problema
+generate_cephalopod_problem()

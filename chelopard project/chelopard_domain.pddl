@@ -22,11 +22,11 @@
 (:action cattura_dado
     :parameters (?p - giocatore ?c - cella)
     :precondition (and (occupata ?c) (exists (?c1 - cella) (and (adiacenti ?c ?c1) (occupata ?c1))))
-    :effect (and )
+    :effect (forall (?adj -cella) (when (and (adiacenti ?c ?adj) (occupata ?adj)) (not (occupata ?adj))))
 )
   (:action cambio_turno
     :parameters (?p1 - giocatore ?p2 - giocatore)
     :precondition (turno ?p1)
     :effect (and (not (turno ?p1)) (turno ?p2)))
-)
+) 
 

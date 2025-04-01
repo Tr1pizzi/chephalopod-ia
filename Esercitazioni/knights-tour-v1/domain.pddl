@@ -12,7 +12,8 @@
         :precondition (and (at ?from)
             (valid_move ?from ?to)
             (not (visited ?to)))
-        :effect (and (not (at ?from))
+        :effect (and 
+            (not (at ?from))
             (at ?to)
             (visited ?to))
     )
