@@ -67,7 +67,7 @@ def minimax(state, depth, alpha, beta, maximizing_player):
 
     best_move = None  
 
-    if maximizing_player:  # 💡 Turno dell'IA (massimizza)
+    if maximizing_player:  # Turno dell'IA (massimizza)
         max_eval = float('-inf')  
         
         for move in get_possible_moves(state, "ai"):
@@ -84,7 +84,7 @@ def minimax(state, depth, alpha, beta, maximizing_player):
 
         return max_eval, best_move
 
-    else:  # 🧑‍💻 Turno dell'umano (minimizza)
+    else:  # Turno dell'umano (minimizza)
         min_eval = float('inf')
         
         for move in get_possible_moves(state, "human"):
