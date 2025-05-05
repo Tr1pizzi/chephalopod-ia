@@ -174,8 +174,25 @@ def all_empty_cells(board, size=5):
                 empties.append((r, c))
     return empties
 
-# Euristica avanzata per Cephalopod
-def evaluate_state(board, player):
+    
+# Esempio di integrazione in playingStrategies:
+def h(board_state, player):
+    """
+    board_state: istanza di Board con attributi .board e .size
+    player: "Blue" o "Red"
+    """
+    # Estrai la matrice grezza dal Board
+    size = board_state.size
+    raw_board = board_state.board  # matrice size×size di None o (owner, pip)
+
+    # Converti in formato atteso da evaluate_state
+    board = [[None] * size for _ in range(size)]
+    for r in range(size):
+        for c in range(size):
+            cell = raw_board[r][c]
+            if cell is not None:
+                owner, pip = cell
+                board[r][c] = {'owner': owner, 'pip': pip}
     """
     board: matrice size x size con None o dict {'owner': "Blue"/"Red", 'pip': int}
     player: "Blue" o "Red"
@@ -229,25 +246,3 @@ def evaluate_state(board, player):
     score += 5 * (my_caps - op_caps)
 
     return score
-
-# Esempio di integrazione in playingStrategies:
-def h(board_state, player):
-    """
-    board_state: istanza di Board con attributi .board e .size
-    player: "Blue" o "Red"
-    """
-    # Estrai la matrice grezza dal Board
-    size = board_state.size
-    raw_board = board_state.board  # matrice size×size di None o (owner, pip)
-
-    # Converti in formato atteso da evaluate_state
-    board = [[None] * size for _ in range(size)]
-    for r in range(size):
-        for c in range(size):
-            cell = raw_board[r][c]
-            if cell is not None:
-                owner, pip = cell
-                board[r][c] = {'owner': owner, 'pip': pip}
-
-    # Valuta lo stato convertito
-    return evaluate_state(board, player)
