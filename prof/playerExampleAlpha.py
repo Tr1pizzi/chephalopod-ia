@@ -1,13 +1,12 @@
 import math
-
+import multiprocessing
+from functools import partial
 # The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
 infinity = math.inf
 
-def playerStrategy (game,state):
-    cutOff = 3 # The depth of the search tree. It can be changed to test the performance of the player.
-    # The player uses the alphabeta search algorithm to find the best move.
-    value,move = h_alphabeta_search(game,state,cutoff_depth(cutOff))
-  
+def playerStrategy(game, state):
+    cutoff = 4
+    _, move = h_alphabeta_search(game, state, cutoff)
     return move
 
 def cache1(function):
@@ -19,57 +18,97 @@ def cache1(function):
         return cache[x]
     return wrapped
 
-def cutoff_depth(d):
-    """A cutoff function that searches to depth d."""
-    return lambda game, state, depth: depth > d
-
-def h_alphabeta_search(game, state, cutoff=cutoff_depth(2)):
-    """Search game to determine best action; use alpha-beta pruning.
-    As in [Figure 5.7], this version searches all the way to the leaves."""
-
+def max_value(game, state, alpha, beta, depth, cutoff, fi):
     player = state.to_move
+    if game.is_terminal(state):
+        fi.send((game.utility(state, player), None))
+        fi.close()
+        return
+    print(depth)
+    if depth>cutoff:
+        fi.send((h(state, player), None))
+        fi.close()
+        return 
+    v, move = -infinity, None
+    for a in game.actions(state):
+        new_state = game.result(state, a) 
+        pa1, fi1 = multiprocessing.Pipe()
+        process = multiprocessing.Process(target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1))
+        process.start()
+        process.join()
+        v2, _ = pa1.recv()
+        print("ricevuto")
+        print(a)
+        print(depth)
+        if v2 > v:
+            v, move = v2, a
+            alpha = max(alpha, v)
+        if v >= beta:
+            fi.send((v, move))
+            fi.close()
+            return 
+    fi.send((v, move))
+    fi.close()
+    return 
 
-    @cache1
-    def max_value(state, alpha, beta, depth):
-        if game.is_terminal(state):
-            return game.utility(state, player), None
-        if cutoff(game, state, depth):
-            return h(state, player), None
-        v, move = -infinity, None
-        for a in game.actions(state):
-            v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
-            if v2 > v:
-                v, move = v2, a
-                alpha = max(alpha, v)
-            if v >= beta:
-                return v, move
-        return v, move
 
-    @cache1
-    def min_value(state, alpha, beta, depth):
-        if game.is_terminal(state):
-            return game.utility(state, player), None
-        if cutoff(game, state, depth):
-            return h(state, player), None
-        v, move = +infinity, None
-        for a in game.actions(state):
-            v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
-            if v2 < v:
-                v, move = v2, a
-                beta = min(beta, v)
-            if v <= alpha:
-                return v, move
-        return v, move
+def min_value(game, state, alpha, beta, depth, cutoff, fi):
+    player = state.to_move
+    if game.is_terminal(state):
+        fi.send((game.utility(state, player), None))
+        fi.close()
+        return
+    if depth>cutoff:
+        fi.send((h(state, player), None))
+        fi.close()
+        return 
+    v, move = +infinity, None
+    for a in game.actions(state):
+        new_state = game.result(state, a)
+        pa1, fi1 = multiprocessing.Pipe()
+        process = multiprocessing.Process(target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1))
+        process.start()
+        process.join()
+        v2, _ = pa1.recv()
+        print("ricevuto")
+        print(a)
+        print(depth)
+        if v2 < v:
+            v, move = v2, a
+            beta = min(beta, v)
+        if v <= alpha:
+            fi.send((v, move))
+            fi.close()
+            return 
+    fi.send((v, move))
+    fi.close()
+    return 
 
-    return max_value(state, -infinity, +infinity, 0)
+def h_alphabeta_search(game, state, cutoff):
+    pa, fi = multiprocessing.Pipe()
+    print(0)
+    process = multiprocessing.Process(target=max_value, args=(game, state, -infinity, +infinity, 0, cutoff, fi))
+    process.start()
+    process.join()
+    v, move= pa.recv()
+    print("ricevuto finale")
+    return v, move
 
 # Funzioni di utilità per il Cephalopod
-def get_adjacent_cells(r, c, size=5):
+def get_adjacent_cells(r, c):
+    """
+    Restituisce le celle adiacenti per una griglia 5x5 hardcoded.
+    """
     adj = []
-    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-        nr, nc = r + dr, c + dc
-        if 0 <= nr < size and 0 <= nc < size:
-            adj.append((nr, nc))
+    # Controlla sopra, sotto, sinistra, destra
+    if r > 0:  # sopra
+        adj.append((r - 1, c))
+    if r < 4:  # sotto
+        adj.append((r + 1, c))
+    if c > 0:  # sinistra
+        adj.append((r, c - 1))
+    if c < 4:  # destra
+        adj.append((r, c + 1))
     return adj
 
     
@@ -117,19 +156,17 @@ def h(board_state, player):
                 """
     
     for (r, c) in empty_cells:
-        adjacent = get_adjacent_cells(r, c, size)
+        adjacent = get_adjacent_cells(r, c)
         for (r2, c2) in adjacent:
             for (r3, c3) in adjacent:
                 if (r2, c2) < (r3, c3):
                     a = board[r2][c2]
                     b = board[r3][c3]
-                    if a and b and a[0] != player and b[0] != player:
-                        if a[1] + b[1] <= 6:
-                            mycaps+=1
-                    if a and b and a[0] != opponent and b[0] != opponent:
-                        if a[1] + b[1] <= 6:
-                            op_caps+=1
-
+                    if a and b:
+                        if a[0] != player and b[0] != player and a[1] + b[1] <= 6:
+                            my_caps += 1
+                        if a[0] != opponent and b[0] != opponent and a[1] + b[1] <= 6:
+                            op_caps += 1
     score = (
         10 * (my_pieces - op_pieces) +
          1 * (my_pips   - op_pips) +

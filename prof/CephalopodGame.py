@@ -9,7 +9,7 @@ import random, itertools, copy, concurrent.futures, threading, time
 
 # EXAMPLE VERSION
 # #######################
-import playerExampleRandom as playerBmodule
+import playerExampleAlpha as playerBmodule
 import playerExampleAlpha as playerRmodule
 # #######################
 
