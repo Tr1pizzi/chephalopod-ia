@@ -5,7 +5,7 @@ from multiprocessing import Manager
 infinity = math.inf
 
 def playerStrategy(game, state):
-    cutoff = 2
+    cutoff = 5
     manager = Manager()
     shared_cache = manager.dict()
     _, move = h_alphabeta_search(game, state, cutoff, shared_cache)
@@ -32,10 +32,14 @@ def max_value(game, state, alpha, beta, depth, cutoff, fi, cache):
     if game.is_terminal(state):
         result = (game.utility(state, player), None)
         cache[key] = result
+        if fi is None:
+            return game.utility(state, player), None
         fi.send((game.utility(state, player), None))
         fi.close()
         return
     if depth>cutoff:
+        if fi is None:
+            return h(state, player), None
         result = (h(state, player), None)
         cache[key] = result
         fi.send((h(state, player), None))
@@ -46,34 +50,51 @@ def max_value(game, state, alpha, beta, depth, cutoff, fi, cache):
     processes = []
     pipes = []
     actions = game.actions(state)
+    
+    if cutoff-depth > 3:
+        for a in actions:
+            print(depth)
+            new_state = game.result(state, a)
+            pa1, fi1 = multiprocessing.Pipe()
+            p = multiprocessing.Process(target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1, cache))
+            p.start()
+            processes.append((p, a))
+            pipes.append((pa1, a))
 
-    for a in actions:
-        print(depth)
-        new_state = game.result(state, a)
-        pa1, fi1 = multiprocessing.Pipe()
-        p = multiprocessing.Process(target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1, cache))
-        p.start()
-        processes.append((p, a))
-        pipes.append((pa1, a))
 
-    # Aspetta tutti i processi
-    for p, _ in processes:
-        p.join()
-        print("fine")
-
-    # Ricevi tutti i risultati
-    v, move = -infinity, None
-    for pa1, a in pipes:
-        v2, _ = pa1.recv()
-        if v2 > v:
-            v, move = v2, a
-            alpha = max(alpha, v)
-        if v >= beta:
-            fi.send((v, move))
-            fi.close()
-            return
+        # Ricevi tutti i risultati
+        for pa1, a in pipes:
+            v2, _ = pa1.recv()
+            if v2 > v:
+                v, move = v2, a
+                alpha = max(alpha, v)
+            if v >= beta:
+                result = (v, move)
+                cache[key] = result
+                if fi is None:
+                    return v, move
+                fi.send((v, move))
+                fi.close()
+                return
+    else:
+         for a in game.actions(state):
+            
+            print(depth)
+            new_state = game.result(state, a)
+            v2, _ = min_value(game, new_state, alpha, beta, depth + 1, cutoff, None, cache)
+            if v2 > v:
+                v, move = v2, a
+                alpha = max(alpha, v)
+            if v >= beta:
+                if fi is None:
+                    return v, move
+                fi.send((v, move))
+                fi.close()
+                return
     result = (v, move)
     cache[key] = result
+    if fi is None:
+        return v, move
     fi.send((v, move))
     fi.close()
     return 
@@ -87,12 +108,16 @@ def min_value(game, state, alpha, beta, depth, cutoff, fi, cache):
         fi.close()
         return
     if game.is_terminal(state):
+        if fi is None:
+            return game.utility(state, player), None
         result = (game.utility(state, player), None)
         cache[key] = result
         fi.send((game.utility(state, player), None))
         fi.close()
         return
     if depth>cutoff:
+        if fi is None:
+            return h(state, player), None
         result = (h(state, player), None)
         cache[key] = result
         fi.send((h(state, player), None))
@@ -104,35 +129,45 @@ def min_value(game, state, alpha, beta, depth, cutoff, fi, cache):
     processes = []
     pipes = []
     actions = game.actions(state)
+    if cutoff-depth > 3:
+        for a in actions:
+            print(depth)
+            new_state = game.result(state, a)
+            pa1, fi1 = multiprocessing.Pipe()
+            p = multiprocessing.Process(target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1, cache))
+            p.start()
+            processes.append((p, a))
+            pipes.append((pa1, a))
 
-    for a in actions:
-        print(depth)
-        new_state = game.result(state, a)
-        pa1, fi1 = multiprocessing.Pipe()
-        p = multiprocessing.Process(target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1, cache))
-        p.start()
-        processes.append((p, a))
-        pipes.append((pa1, a))
 
-    # Aspetta tutti i processi
-    for p, _ in processes:
-        p.join()
-        print("fine")
+        # Ricevi tutti i risultati
 
-    # Ricevi tutti i risultati
-    v, move = -infinity, None
-    for pa1, a in pipes:
-        v2, _ = pa1.recv()
-        if v2 > v:
-            v, move = v2, a
-            beta = min(beta, v)
-        if v >= alpha:
-            fi.send((v, move))
-            fi.close()
-            return 
-        
+        for pa1, a in pipes:
+            v2, _ = pa1.recv()
+            if v2 > v:
+                v, move = v2, a
+                beta = min(beta, v)
+            if v >= alpha:
+                if fi is None:
+                    return v, move
+                fi.send((v, move))
+                fi.close()
+                return 
+    else:
+        for a in game.actions(state):
+            
+            print(depth)
+            new_state = game.result(state, a)
+            v2, _ = max_value(game, new_state, alpha, beta, depth + 1, cutoff, None, cache)
+            if v2 < v:
+                v, move = v2, a
+                beta = min(beta, v)
+            if v <= alpha:
+                return v, move
     result = (v, move)
     cache[key] = result
+    if fi is None:
+        return v, move
     fi.send((v, move))
     fi.close()
     return 
@@ -141,7 +176,6 @@ def h_alphabeta_search(game, state, cutoff, cache):
     pa, fi = multiprocessing.Pipe()
     process = multiprocessing.Process(target=max_value, args=(game, state, -infinity, +infinity, 0, cutoff, fi, cache))
     process.start()
-    process.join()
     print("totale")
     v, move= pa.recv()
     return v, move
