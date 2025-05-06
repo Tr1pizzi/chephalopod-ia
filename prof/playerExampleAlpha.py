@@ -45,32 +45,35 @@ def max_value(game, state, alpha, beta, depth, cutoff, fi, cache):
 
     best_val, best_move = -infinity, None
     children = []
-    
+
     for a in game.actions(state):
         new_state = game.result(state, a)
         parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
-        proc = multiprocessing.Process(target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, child_conn, cache))
+        proc = multiprocessing.Process(
+            target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, child_conn, cache)
+        )
         proc.start()
         children.append((a, proc, parent_conn))
 
     for a, proc, conn in children:
-        v, _ = conn.recv()  # Blocking wait
+        v, _ = conn.recv()
+        conn.close()
         proc.join()
         if v > best_val:
             best_val, best_move = v, a
             alpha = max(alpha, best_val)
         if best_val >= beta:
-            # Pruning: termina tutti i processi rimanenti
+            # Pruning: chiudi tutti i processi restanti
             for _, p2, _ in children:
                 if p2.is_alive():
                     p2.terminate()
+                p2.join()
             break
 
     result = (best_val, best_move)
     cache[key] = result
     fi.send(result)
     fi.close()
-
 
 def min_value(game, state, alpha, beta, depth, cutoff, fi, cache):
     player = state.to_move
@@ -102,27 +105,32 @@ def min_value(game, state, alpha, beta, depth, cutoff, fi, cache):
     for a in game.actions(state):
         new_state = game.result(state, a)
         parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
-        proc = multiprocessing.Process(target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, child_conn, cache))
+        proc = multiprocessing.Process(
+            target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, child_conn, cache)
+        )
         proc.start()
         children.append((a, proc, parent_conn))
 
     for a, proc, conn in children:
         v, _ = conn.recv()
+        conn.close()
         proc.join()
         if v < best_val:
             best_val, best_move = v, a
             beta = min(beta, best_val)
         if best_val <= alpha:
+            # Pruning: chiudi tutti i processi restanti
             for _, p2, _ in children:
                 if p2.is_alive():
                     p2.terminate()
+                p2.join()
             break
 
     result = (best_val, best_move)
     cache[key] = result
     fi.send(result)
     fi.close()
-
+ 
 
 def h_alphabeta_search(game, state, cutoff, cache):
     pa, fi = multiprocessing.Pipe()
