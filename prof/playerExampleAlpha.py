@@ -19,64 +19,57 @@ def cache1(function):
             cache[x] = function(x, *args)
         return cache[x]
     return wrapped
-
 def max_value(game, state, alpha, beta, depth, cutoff, fi, cache):
     player = state.to_move
-
     key = (state, depth, "max")
     if key in cache:
         fi.send(cache[key])
         fi.close()
         return
-    
+
     if game.is_terminal(state):
-        result = (game.utility(state, player), None)
+        val = game.utility(state, player)
+        result = (val, None)
         cache[key] = result
-        fi.send((game.utility(state, player), None))
+        fi.send(result)
         fi.close()
         return
-    if depth>cutoff:
-        result = (h(state, player), None)
+
+    if depth > cutoff:
+        val = h(state, player)
+        result = (val, None)
         cache[key] = result
-        fi.send((h(state, player), None))
+        fi.send(result)
         fi.close()
-        return 
-    v, move = -infinity, None
+        return
 
-    processes = []
-    pipes = []
-    actions = game.actions(state)
-
-    for a in actions:
-        print(depth)
+    best_val, best_move = -infinity, None
+    children = []
+    
+    for a in game.actions(state):
         new_state = game.result(state, a)
-        pa1, fi1 = multiprocessing.Pipe()
-        p = multiprocessing.Process(target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1, cache))
-        p.start()
-        processes.append((p, a))
-        pipes.append((pa1, a))
+        parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
+        proc = multiprocessing.Process(target=min_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, child_conn, cache))
+        proc.start()
+        children.append((a, proc, parent_conn))
 
-    # Aspetta tutti i processi
-    for p, _ in processes:
-        p.join()
-        print("fine")
+    for a, proc, conn in children:
+        v, _ = conn.recv()  # Blocking wait
+        proc.join()
+        if v > best_val:
+            best_val, best_move = v, a
+            alpha = max(alpha, best_val)
+        if best_val >= beta:
+            # Pruning: termina tutti i processi rimanenti
+            for _, p2, _ in children:
+                if p2.is_alive():
+                    p2.terminate()
+            break
 
-    # Ricevi tutti i risultati
-    v, move = -infinity, None
-    for pa1, a in pipes:
-        v2, _ = pa1.recv()
-        if v2 > v:
-            v, move = v2, a
-            alpha = max(alpha, v)
-        if v >= beta:
-            fi.send((v, move))
-            fi.close()
-            return
-    result = (v, move)
+    result = (best_val, best_move)
     cache[key] = result
-    fi.send((v, move))
+    fi.send(result)
     fi.close()
-    return 
 
 
 def min_value(game, state, alpha, beta, depth, cutoff, fi, cache):
@@ -86,56 +79,50 @@ def min_value(game, state, alpha, beta, depth, cutoff, fi, cache):
         fi.send(cache[key])
         fi.close()
         return
+
     if game.is_terminal(state):
-        result = (game.utility(state, player), None)
+        val = game.utility(state, player)
+        result = (val, None)
         cache[key] = result
-        fi.send((game.utility(state, player), None))
+        fi.send(result)
         fi.close()
         return
-    if depth>cutoff:
-        result = (h(state, player), None)
+
+    if depth > cutoff:
+        val = h(state, player)
+        result = (val, None)
         cache[key] = result
-        fi.send((h(state, player), None))
+        fi.send(result)
         fi.close()
-        return 
-    v, move = +infinity, None
+        return
 
+    best_val, best_move = +infinity, None
+    children = []
 
-    processes = []
-    pipes = []
-    actions = game.actions(state)
-
-    for a in actions:
-        print(depth)
+    for a in game.actions(state):
         new_state = game.result(state, a)
-        pa1, fi1 = multiprocessing.Pipe()
-        p = multiprocessing.Process(target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, fi1, cache))
-        p.start()
-        processes.append((p, a))
-        pipes.append((pa1, a))
+        parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
+        proc = multiprocessing.Process(target=max_value, args=(game, new_state, alpha, beta, depth + 1, cutoff, child_conn, cache))
+        proc.start()
+        children.append((a, proc, parent_conn))
 
-    # Aspetta tutti i processi
-    for p, _ in processes:
-        p.join()
-        print("fine")
+    for a, proc, conn in children:
+        v, _ = conn.recv()
+        proc.join()
+        if v < best_val:
+            best_val, best_move = v, a
+            beta = min(beta, best_val)
+        if best_val <= alpha:
+            for _, p2, _ in children:
+                if p2.is_alive():
+                    p2.terminate()
+            break
 
-    # Ricevi tutti i risultati
-    v, move = -infinity, None
-    for pa1, a in pipes:
-        v2, _ = pa1.recv()
-        if v2 > v:
-            v, move = v2, a
-            beta = min(beta, v)
-        if v >= alpha:
-            fi.send((v, move))
-            fi.close()
-            return 
-        
-    result = (v, move)
+    result = (best_val, best_move)
     cache[key] = result
-    fi.send((v, move))
+    fi.send(result)
     fi.close()
-    return 
+
 
 def h_alphabeta_search(game, state, cutoff, cache):
     pa, fi = multiprocessing.Pipe()
