@@ -9,8 +9,8 @@ import random, itertools, copy, concurrent.futures, threading, time
 
 # EXAMPLE VERSION
 # #######################
-import playerExampleGamma as playerBmodule
-import playerExampleAlpha as playerRmodule
+import playerExampleDelta as playerBmodule
+import playerExampleBetaD as playerRmodule
 # #######################
 
 class Game:

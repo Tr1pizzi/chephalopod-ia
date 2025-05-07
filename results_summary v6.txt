@@ -1,0 +1,26 @@
+alpha vs betac -> 0 - 2
+alphab vs betac -> 0 - 2
+beta vs betac -> 1 - 1
+betab vs betac -> 1 - 1
+betac vs gamma -> 2 - 0
+betac vs delta -> 2 - 0
+
+--- Totali ---
+alpha: 0 vittorie
+alphab: 0 vittorie
+beta: 1 vittorie
+betab: 1 vittorie
+betac: 10 vittorie
+delta: 0 vittorie
+gamma: 0 vittorie
+
+--- Tabella dei Risultati ---
+               alpha  alphab    beta   betab   betac   gamma   delta
+alpha            ---     0-0     0-0     0-0     0-2     0-0     0-0
+alphab           0-0     ---     0-0     0-0     0-2     0-0     0-0
+beta             0-0     0-0     ---     0-0     1-1     0-0     0-0
+betab            0-0     0-0     0-0     ---     1-1     0-0     0-0
+betac            2-0     2-0     1-1     1-1     ---     2-0     2-0
+gamma            0-0     0-0     0-0     0-0     0-2     ---     0-0
+delta            0-0     0-0     0-0     0-0     0-2     0-0     ---
+ 10 2 5 5

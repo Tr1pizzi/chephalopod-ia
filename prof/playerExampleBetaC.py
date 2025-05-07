@@ -1,5 +1,4 @@
 import math
-import time
 # The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
 infinity = math.inf
 def playerStrategy(game, state):
@@ -153,10 +152,10 @@ def h(board_state, player):
 
     score = (
         10 * (my_pieces - op_pieces) +
-         2 * (my_pips   - op_pips) +
+         3 * (my_pips   - op_pips) +
         center_bonus +
          5 * (my_caps - op_caps)+ 
-         15 * (my_6-op_6)
+         5 * (my_6-op_6)
 
     )
     return score

@@ -1,5 +1,4 @@
 import math
-import time
 # The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
 infinity = math.inf
 def playerStrategy(game, state):

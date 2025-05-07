@@ -1,0 +1,65 @@
+alphab: 1 vittorie
+beta: 1 vittorie
+betac: 1 vittorie
+betad: 11 vittorie
+10 4 5 5 
+
+alphab: 1 vittorie
+betac: 1 vittorie
+betad: 12 vittorie
+10 3 6 5
+
+betac: 2 vittorie
+betad: 12 vittorie
+10 3 7 5
+
+alphab: 1 vittorie
+betad: 13 vittorie
+10 3 8 5
+
+alphab: 1 vittorie
+betab: 1 vittorie
+betad: 12 vittorie
+10 3 10 5
+
+betac: 1 vittorie
+betad: 13 vittorie
+10 3 9 5
+
+betac: 1 vittorie
+betad: 13 vittorie
+10 3 9 6
+
+alphab: 2 vittorie
+betad: 12 vittorie
+10 3 9 10
+
+betac: 2 vittorie
+betad: 12 vittorie
+10 3 9 8
+
+betac: 2 vittorie
+betad: 12 vittorie
+10 3 6 7
+
+alpha: 1 vittorie
+betad: 13 vittorie
+10 3 7 10
+
+alphab: 1 vittorie
+betad: 13 vittorie
+12 3 7 12
+
+betac: 1 vittorie
+betad: 13 vittorie
+10 3 7 12
+
+alpha: 1 vittorie
+betac: 1 vittorie
+betad: 12 vittorie
+10 3 7 20
+
+
+
+
+

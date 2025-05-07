@@ -1,6 +1,4 @@
 import math
-import itertools
-import time
 # The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
 infinity = math.inf
 def playerStrategy(game, state):
@@ -98,83 +96,66 @@ def get_adjacent_cells(r, c, size=5):
     
 # Esempio di integrazione in playingStrategies:
 def h(board_state, player):
+    # Estrai la matrice grezza dal Board
     size = board_state.size
-    board = board_state.board
+    board = board_state.board  # matrice size×size di None o (owner, pip)
     opponent = "Red" if player == "Blue" else "Blue"
-
-    my_pieces = my_pips = op_pieces = op_pips = 0
-    my_caps = op_caps = center_bonus = vulnerable = mobility = op_pips = my_6 = op_6 = 0
+    
+    my_caps = op_caps = center_bonus = my_pieces = my_pips = op_pieces = op_pips = my_6 = op_6 = 0
     empty_cells = []
-    adjacent_cache = {}  # cache per celle adiacenti
-
+    # Converti in formato atteso da evaluate_state / Differenza pezzi e somma pip
     for r in range(size):
         for c in range(size):
             cell = board[r][c]
             if cell is None:
-                empty_cells.append((r, c))
+                empty_cells.append((r,c))
             else:
-                owner, pip = cell
-                if owner == player:
+                """"
+                valutazione in base ai pezzi
+                """
+                if cell[0] == player:
                     my_pieces += 1
-                    my_pips += pip
+                    my_pips   += cell[1]
                 else:
                     op_pieces += 1
-                    op_pips += pip
+                    op_pips   += cell[1]
 
+                """"
+                controllo centro
+                """
                 if 1 <= r < size - 1 and 1 <= c < size - 1:
-                    center_bonus += 2 if owner == player else -2
+                    center_bonus +=  2 if cell[0] == player else -2
 
-                # Calcolo mobilità direttamente durante il primo passaggio
-                for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
-                    nr, nc = r + dr, c + dc
-                    if 0 <= nr < size and 0 <= nc < size and board[nr][nc] is None:
-                        if owner == player:
-                            mobility += 1
-
-    # Catture potenziali
+                """"
+                cattura
+                """
+    
     for (r, c) in empty_cells:
-        if (r, c) not in adjacent_cache:
-            adjacent_cache[(r, c)] = get_adjacent_cells(r, c, size)
-        adjacent = adjacent_cache[(r, c)]
-        pairs = [(board[r2][c2], board[r3][c3])
-                 for i in range(len(adjacent))
-                 for j in range(i + 1, len(adjacent))
-                 for (r2, c2), (r3, c3) in [(adjacent[i], adjacent[j])]]
-
-        for a, b in pairs:
-            if a and b:
-                pip_sum = a[1] + b[1]
-                if pip_sum <= 6:
-                    if a[0] != player and b[0] != player:
-                        my_caps += 1
-                        if pip_sum==6:
-                            my_6+=1
-                    if a[0] != opponent and b[0] != opponent:
-                        op_caps += 1
-                        if pip_sum == 6:
-                            op_6+=1
-
-    # Vulnerabilità: miei dadi adiacenti a coppie nemiche
-    for r in range(size):
-        for c in range(size):
-            cell = board[r][c]
-            if cell and cell[0] == player:
-                if (r, c) not in adjacent_cache:
-                    adjacent_cache[(r, c)] = get_adjacent_cells(r, c, size)
-                enemies = [board[r2][c2] for (r2, c2) in adjacent_cache[(r, c)]
-                           if board[r2][c2] and board[r2][c2][0] != player]
-                for i in range(len(enemies)):
-                    for j in range(i + 1, len(enemies)):
-                        if enemies[i][1] + enemies[j][1] <= 6:
-                            vulnerable += 1
+        adjacent = get_adjacent_cells(r, c, size)
+        for (r2, c2) in adjacent:
+            for (r3, c3) in adjacent:
+                if (r2, c2) < (r3, c3):
+                    a = board[r2][c2]
+                    b = board[r3][c3]
+                    if a and b and a[0] != player and b[0] != player:
+                        val = a[1] + b[1]
+                        if val <= 6:
+                            my_caps+=1
+                            if val == 6:
+                                my_6 += 1
+                    if a and b and a[0] != opponent and b[0] != opponent:
+                        val = a[1] + b[1]
+                        if val <= 6:
+                            op_caps+=1
+                            if val == 6:
+                                op_6 += 1
 
     score = (
         10 * (my_pieces - op_pieces) +
-        2 * (my_pips - op_pips) +
+         3 * (my_pips   - op_pips) +
         center_bonus +
-        4 * (my_caps - op_caps) +
-        12 * (my_6-op_6) +
-        3 * mobility -
-        5 * vulnerable
+         7 * (my_caps - op_caps)+ 
+         12 * (my_6-op_6)
+
     )
     return score
