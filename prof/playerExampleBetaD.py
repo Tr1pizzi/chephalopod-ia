@@ -60,11 +60,6 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
         if cutoff(game, state, depth):
             return h(state, player), None
         v, move = +infinity, None
-        def move_priority(a):
-            (r, c), pip, captured = a
-            center_bonus = (1 <= r < 4 and 1 <= c < 4)
-            return len(captured) * 10 + center_bonus
-
         actions = sorted(game.actions(state), key=move_priority, reverse=True)
         for a in actions:
             v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
