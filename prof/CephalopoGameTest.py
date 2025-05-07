@@ -9,10 +9,11 @@ import random, itertools, copy, concurrent.futures, threading, time
 
 # EXAMPLE VERSION
 # #######################
-import playerExampleGamma as playerBmodule
-import playerExampleAlpha as playerRmodule
+import playerExampleAlphaB as playerRmodule
+import playerExampleBetaC as playerBmodule
 # #######################
-
+mcb=0
+mcr=0
 class Game:
     """A game is similar to a problem, but it has a terminal test instead of
     a goal test, and a utility for each terminal state. To create a game,
@@ -360,6 +361,10 @@ class CephalopodGUI:
                 move = None
             if move is None:
                 move = random.choice(legal_moves)
+                if current_player == "Blue":
+                    mcb+=1
+                else:
+                    mcr+=1
                 print(f"Time-out per {current_player}, effettuata mossa casuale {move}\n")
         else:
             self.waiting_for_human = True
@@ -408,37 +413,115 @@ class CephalopodGUI:
         self.root.wait_window(dialog)
 
 # Funzione principale: chiede la modalità e il primo giocatore, quindi avvia l'interfaccia.
-def main():
-    root = tk.Tk()
-    root.withdraw()
-    mode = simpledialog.askinteger("Seleziona modalità", 
-        "Seleziona modalità:\n1: Umano vs Umano\n2: Umano vs AI\n3: AI vs AI", minvalue=1, maxvalue=3)
-    first = simpledialog.askstring("Primo giocatore", "Inserisci il primo giocatore (Blue o Red):", parent=root)
-    first = first.capitalize()
-    if first in "Red":
-        first = "Red"
-    else:
-        first = "Blue"
-    
-    if mode == 1:
-        player_types = {"Blue": "human", "Red": "human"}
-    elif mode == 2:
-        human_player = simpledialog.askstring("Giocatore umano", "Quale giocatore è umano? (Blue o Red):", parent=root)
-        human_player = human_player.capitalize()
-        if human_player in "Red":
-            human_player = "Red"
-        else:
-            human_player = "Blue"
-        
-        player_types = {"Blue": "human" if human_player == "Blue" else "ai",
-                        "Red": "human" if human_player == "Red" else "ai"}
-    else:
-        player_types = {"Blue": "ai", "Red": "ai"}
-    root.destroy()
-    
-    game = CephalopodGame(size=5, first_player=first)
-    gui = CephalopodGUI(game, player_types, time_out=3)
-    gui.run_game_loop()
 
-if __name__ == '__main__':
+import random
+import importlib
+import multiprocessing
+from CephalopodGame import CephalopodGame
+
+players = {
+    "alpha": "playerExampleAlpha",
+    "alphab": "playerExampleAlphaB",
+    "beta": "playerExampleBeta",
+    "betab": "playerExampleBetaB",
+    "betac": "playerExampleBetaC",
+    "gamma": "playerExampleGamma",
+    "delta": "playerExampleDelta",
+}
+
+matchups = [
+    ("alpha", "alphab"),
+    ("alpha", "beta"),
+    ("alpha", "betab"),
+    ("alpha", "betac"),
+    ("alpha", "gamma"),
+    ("alpha", "delta"),
+    ("alphab", "beta"),
+    ("alphab", "betab"),
+    ("alphab", "betac"),
+    ("alphab", "gamma"),
+    ("alphab", "delta"),
+    ("beta", "betab"),
+    ("beta", "betac"),
+    ("beta", "gamma"),
+    ("beta", "delta"),
+    ("betab", "betac"),
+    ("betab", "gamma"),
+    ("betab", "delta"),
+    ("betac", "gamma"),
+    ("betac", "delta"),
+    ("gamma", "delta"),
+]
+
+def simulate_game(args):
+    red_name, blue_name, first_player = args
+    red_mod = importlib.import_module(players[red_name])
+    blue_mod = importlib.import_module(players[blue_name])
+    game = CephalopodGame(size=5, first_player=first_player)
+    state = game.initial
+
+    while not game.is_terminal(state):
+        current_player = state.to_move
+        if current_player == "Red":
+            move = red_mod.playerStrategy(game, state)
+        else:
+            move = blue_mod.playerStrategy(game, state)
+        if move not in game.actions(state):
+            move = random.choice(game.actions(state))
+        state = game.result(state, move)
+
+    winner = "Blue" if game.utility(state) == 1 else "Red"
+    return blue_name if winner == "Blue" else red_name
+
+def main():
+    tasks = []
+    for p1, p2 in matchups:
+        tasks.append((p1, p2, "Red"))  # p1 inizia
+        tasks.append((p2, p1, "Red"))  # p2 inizia
+
+    with multiprocessing.Pool() as pool:
+        results = pool.map(simulate_game, tasks)
+
+    win_count = {name: 0 for name in players}
+    result_map = {}
+    table_data = {name: {op: "---" if name == op else "0-0" for op in players} for name in players}
+
+    for i, (p1, p2) in enumerate(matchups):
+        w1 = results[i * 2]
+        w2 = results[i * 2 + 1]
+        result_map[(p1, p2)] = (w1, w2)
+        win_count[w1] += 1
+        win_count[w2] += 1
+
+        s1 = s2 = 0
+        if w1 == p1: s1 += 1
+        elif w1 == p2: s2 += 1
+        if w2 == p1: s1 += 1
+        elif w2 == p2: s2 += 1
+
+        table_data[p1][p2] = f"{s1}-{s2}"
+        table_data[p2][p1] = f"{s2}-{s1}"
+
+    with open("results_summary.txt", "w", encoding="utf-8") as out:
+        for (p1, p2), (w1, w2) in result_map.items():
+            score = {p1: 0, p2: 0}
+            score[w1] += 1
+            score[w2] += 1
+            out.write(f"{p1} vs {p2} -> {score[p1]} - {score[p2]}\n")
+
+        out.write("\n--- Totali ---\n")
+        for name in sorted(win_count):
+            out.write(f"{name}: {win_count[name]} vittorie\n")
+
+        out.write("\n--- Tabella dei Risultati ---\n")
+        names = list(players.keys())
+        header = " " * 12 + "".join(f"{name:>8}" for name in names)
+        out.write(header + "\n")
+        for row_name in names:
+            row = f"{row_name:<12}"
+            for col_name in names:
+                row += f"{table_data[row_name][col_name]:>8}"
+            out.write(row + "\n")
+
+if __name__ == "__main__":
     main()

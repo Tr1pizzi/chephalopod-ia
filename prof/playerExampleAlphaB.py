@@ -4,11 +4,19 @@ import time
 infinity = math.inf
 def playerStrategy(game, state):
     # Conta quante pedine sono presenti sulla board
-    cutOff=4
+    pieces_on_board = sum(1 for row in state.board for cell in row if cell is not None)
+    # Cutoff dinamico in base alla densità della board
+    if pieces_on_board < 17:
+        depth = 4  # early game
+    elif pieces_on_board < 19:
+        depth = 5  # mid game
+    elif pieces_on_board < 22:
+        depth = 6  # mid game
+    else:
+        depth = 8  # late game
 
     # Chiamata all'alpha-beta search
-    value, move = h_alphabeta_search(game, state, cutoff_depth(cutOff))
-    
+    value, move = h_alphabeta_search(game, state, cutoff_depth(depth))
     return move
 
 def cache1(function):

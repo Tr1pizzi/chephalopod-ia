@@ -1,14 +1,13 @@
 import math
-import time
+
 # The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
 infinity = math.inf
-def playerStrategy(game, state):
-    # Conta quante pedine sono presenti sulla board
-    cutOff=4
 
-    # Chiamata all'alpha-beta search
-    value, move = h_alphabeta_search(game, state, cutoff_depth(cutOff))
-    
+def playerStrategy (game,state):
+    cutOff = 4 # The depth of the search tree. It can be changed to test the performance of the player.
+    # The player uses the alphabeta search algorithm to find the best move.
+    value,move = h_alphabeta_search(game,state,cutoff_depth(cutOff))
+  
     return move
 
 def cache1(function):
@@ -36,8 +35,15 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             return game.utility(state, player), None
         if cutoff(game, state, depth):
             return h(state, player), None
+        
+        def move_priority(a):
+            (r, c), pip, captured = a
+            center_bonus = (1 <= r < 4 and 1 <= c < 4)
+            return len(captured) * 10 + center_bonus
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
+
         v, move = -infinity, None
-        for a in game.actions(state):
+        for a in actions:
             v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
             if v2 > v:
                 v, move = v2, a
@@ -53,7 +59,13 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
         if cutoff(game, state, depth):
             return h(state, player), None
         v, move = +infinity, None
-        for a in game.actions(state):
+        def move_priority(a):
+            (r, c), pip, captured = a
+            center_bonus = (1 <= r < 4 and 1 <= c < 4)
+            return len(captured) * 10 + center_bonus
+
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
+        for a in actions:
             v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
             if v2 < v:
                 v, move = v2, a

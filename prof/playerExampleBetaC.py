@@ -4,11 +4,19 @@ import time
 infinity = math.inf
 def playerStrategy(game, state):
     # Conta quante pedine sono presenti sulla board
-    cutOff=4
+    pieces_on_board = sum(1 for row in state.board for cell in row if cell is not None)
+    # Cutoff dinamico in base alla densità della board
+    if pieces_on_board < 17:
+        depth = 4  # early game
+    elif pieces_on_board < 19:
+        depth = 5  # mid game
+    elif pieces_on_board < 22:
+        depth = 6  # mid game
+    else:
+        depth = 8  # late game
 
     # Chiamata all'alpha-beta search
-    value, move = h_alphabeta_search(game, state, cutoff_depth(cutOff))
-    
+    value, move = h_alphabeta_search(game, state, cutoff_depth(depth))
     return move
 
 def cache1(function):
@@ -36,8 +44,15 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             return game.utility(state, player), None
         if cutoff(game, state, depth):
             return h(state, player), None
+        
+        def move_priority(a):
+            (r, c), pip, captured = a
+            center_bonus = (1 <= r < 4 and 1 <= c < 4)
+            return len(captured) * 10 + center_bonus
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
+
         v, move = -infinity, None
-        for a in game.actions(state):
+        for a in actions:
             v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
             if v2 > v:
                 v, move = v2, a
@@ -53,7 +68,13 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
         if cutoff(game, state, depth):
             return h(state, player), None
         v, move = +infinity, None
-        for a in game.actions(state):
+        def move_priority(a):
+            (r, c), pip, captured = a
+            center_bonus = (1 <= r < 4 and 1 <= c < 4)
+            return len(captured) * 10 + center_bonus
+
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
+        for a in actions:
             v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
             if v2 < v:
                 v, move = v2, a
@@ -76,19 +97,12 @@ def get_adjacent_cells(r, c, size=5):
     
 # Esempio di integrazione in playingStrategies:
 def h(board_state, player):
-    """
-    board_state: istanza di Board con attributi .board e .size
-    player: "Blue" o "Red"
-    """
     # Estrai la matrice grezza dal Board
     size = board_state.size
     board = board_state.board  # matrice size×size di None o (owner, pip)
-    """
-    board: matrice size x size con None o dict {'owner': "Blue"/"Red", 'pip': int}
-    player: "Blue" o "Red"
-    """
     opponent = "Red" if player == "Blue" else "Blue"
-    my_caps = op_caps = center_bonus = my_pieces = my_pips = op_pieces = op_pips = 0
+    
+    my_caps = op_caps = center_bonus = my_pieces = my_pips = op_pieces = op_pips = my_6 = op_6 = 0
     empty_cells = []
     # Converti in formato atteso da evaluate_state / Differenza pezzi e somma pip
     for r in range(size):
@@ -125,16 +139,24 @@ def h(board_state, player):
                     a = board[r2][c2]
                     b = board[r3][c3]
                     if a and b and a[0] != player and b[0] != player:
-                        if a[1] + b[1] <= 6:
+                        val = a[1] + b[1]
+                        if val <= 6:
                             my_caps+=1
+                            if val == 6:
+                                my_6 += 1
                     if a and b and a[0] != opponent and b[0] != opponent:
-                        if a[1] + b[1] <= 6:
+                        val = a[1] + b[1]
+                        if val <= 6:
                             op_caps+=1
+                            if val == 6:
+                                op_6 += 1
 
     score = (
         10 * (my_pieces - op_pieces) +
-         1 * (my_pips   - op_pips) +
+         2 * (my_pips   - op_pips) +
         center_bonus +
-         5 * (my_caps - op_caps)
+         5 * (my_caps - op_caps)+ 
+         15 * (my_6-op_6)
+
     )
     return score
