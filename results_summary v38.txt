@@ -1,0 +1,232 @@
+betad vs delta -> 2 - 0
+alpha vs delta -> 2 - 0
+alphab vs delta -> 2 - 0
+beta vs delta -> 2 - 0
+betab vs delta -> 2 - 0
+betac vs delta -> 2 - 0
+gamma vs delta -> 1 - 1
+
+--- Totali ---
+alpha: 2 vittorie
+alphab: 2 vittorie
+beta: 2 vittorie
+betab: 2 vittorie
+betac: 2 vittorie
+betad: 2 vittorie
+delta: 1 vittorie
+gamma: 1 vittorie
+
+--- Tabella dei Risultati ---
+               alpha  alphab    beta   betab   betac   betad   gamma   delta
+alpha            ---     0-0     0-0     0-0     0-0     0-0     0-0     2-0
+alphab           0-0     ---     0-0     0-0     0-0     0-0     0-0     2-0
+beta             0-0     0-0     ---     0-0     0-0     0-0     0-0     2-0
+betab            0-0     0-0     0-0     ---     0-0     0-0     0-0     2-0
+betac            0-0     0-0     0-0     0-0     ---     0-0     0-0     2-0
+betad            0-0     0-0     0-0     0-0     0-0     ---     0-0     2-0
+gamma            0-0     0-0     0-0     0-0     0-0     0-0     ---     1-1
+delta            0-2     0-2     0-2     0-2     0-2     0-2     1-1     ---
+
+import math
+import itertools
+import time
+# The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
+infinity = math.inf
+def playerStrategy(game, state):
+    # Conta quante pedine sono presenti sulla board
+    pieces_on_board = sum(1 for row in state.board for cell in row if cell is not None)
+    # Cutoff dinamico in base alla densità della board
+    if pieces_on_board < 17:
+        depth = 4  # early game
+    elif pieces_on_board < 19:
+        depth = 5  # mid game
+    elif pieces_on_board < 22:
+        depth = 6  # mid game
+    else:
+        depth = 8  # late game
+
+    # Chiamata all'alpha-beta search
+    value, move = h_alphabeta_search(game, state, cutoff_depth(depth))
+    return move
+
+def cache1(function):
+    "Like lru_cache(None), but only considers the first argument of function."
+    cache = {}
+    def wrapped(x, *args):
+        if x not in cache:
+            cache[x] = function(x, *args)
+        return cache[x]
+    return wrapped
+
+def cutoff_depth(d):
+    """A cutoff function that searches to depth d."""
+    return lambda game, state, depth: depth > d
+
+def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
+    """Search game to determine best action; use alpha-beta pruning.
+    As in [Figure 5.7], this version searches all the way to the leaves."""
+
+    player = state.to_move
+
+    @cache1
+    def max_value(state, alpha, beta, depth):
+        if game.is_terminal(state):
+            return game.utility(state, player), None
+        if cutoff(game, state, depth):
+            return h(state, player), None
+        
+        def move_priority(a):
+            (r, c), pip, captured = a
+            center_bonus = (1 <= r < 4 and 1 <= c < 4)
+            return len(captured) * 10 + center_bonus
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
+
+        v, move = -infinity, None
+        for a in actions:
+            v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
+            if v2 > v:
+                v, move = v2, a
+                alpha = max(alpha, v)
+            if v >= beta:
+                return v, move
+        return v, move
+
+    @cache1
+    def min_value(state, alpha, beta, depth):
+        if game.is_terminal(state):
+            return game.utility(state, player), None
+        if cutoff(game, state, depth):
+            return h(state, player), None
+        v, move = +infinity, None
+        def move_priority(a):
+            (r, c), pip, captured = a
+            center_bonus = (1 <= r < 4 and 1 <= c < 4)
+            return len(captured) * 10 + center_bonus
+
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
+        for a in actions:
+            v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
+            if v2 < v:
+                v, move = v2, a
+                beta = min(beta, v)
+            if v <= alpha:
+                return v, move
+        return v, move
+
+    return max_value(state, -infinity, +infinity, 0)
+
+# Funzioni di utilità per il Cephalopod
+def get_adjacent_cells(r, c, size=5):
+    adj = []
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < size and 0 <= nc < size:
+            adj.append((nr, nc))
+    return adj
+
+    
+def h(state, player):
+    size   = state.size
+    board  = state.board
+    opp    = "Red" if player == "Blue" else "Blue"
+
+    empty = []
+    mine = opps = mine_pip = opp_pip = 0
+    mob = opp_mob = 0
+    cap_other = cap6 = opp_cap_other = opp_cap6 = 0
+    vuln = th = opp_th = 0          # vulnerabilità e pre-minacce 6
+
+    # ---------- scan della board ----------
+    for r in range(size):
+        for c in range(size):
+            cell = board[r][c]
+            if cell is None:
+                empty.append((r, c))
+                continue
+
+            owner, pip = cell
+            if owner == player:
+                mine += 1
+                mine_pip += pip
+            else:
+                opps += 1
+                opp_pip += pip
+
+            # mobilità per entrambi
+            for dr, dc in ((1,0), (-1,0), (0,1), (0,-1)):
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < size and 0 <= nc < size and board[nr][nc] is None:
+                    if owner == player:
+                        mob += 1
+                    else:
+                        opp_mob += 1
+
+    # ---------- analisi celle vuote ----------
+    dirs = ((1,0), (-1,0), (0,1), (0,-1))
+    for (r, c) in empty:
+        adj = [ board[r+dr][c+dc]
+                for dr, dc in dirs
+                if 0 <= r+dr < size and 0 <= c+dc < size
+                   and board[r+dr][c+dc] ]
+
+        # minacce di cattura (coppie di adiacenti)
+        for i in range(len(adj)):
+            for j in range(i+1, len(adj)):
+                a, b = adj[i], adj[j]
+                s = a[1] + b[1]
+                if s > 6:
+                    continue
+
+                # stessa fazione?
+                if a[0] == b[0] == player:
+                    if s == 6:
+                        cap6 += 1
+                    else:
+                        cap_other += 1
+                elif a[0] == b[0] == opp:
+                    if s == 6:
+                        opp_cap6 += 1
+                    else:
+                        opp_cap_other += 1
+
+        # pre-minaccia (una sola pedina adiacente)
+        if len(adj) == 1:
+            lone = adj[0]
+            need = 6 - lone[1] if lone[1] < 6 else lone[1] - 1
+            if lone[0] == player:
+                th += need      # quanto manca a completare 6
+            else:
+                opp_th += need
+
+    # ---------- vulnerabilità dei miei dadi ----------
+    for (r, c) in empty:
+        for dr, dc in dirs:
+            nr, nc = r + dr, c + dc
+            pr, pc = r - dr, c - dc
+            if (0 <= nr < size and 0 <= nc < size and
+                0 <= pr < size and 0 <= pc < size):
+
+                a = board[nr][nc]
+                b = board[pr][pc]
+                if a and b and a[0] == b[0] == opp and a[1] + b[1] <= 6:
+                    # il pezzo che verrà messo a (r,c) può catturarmi se ho un mio dado lì vicino
+                    for rr, cc in ((nr+dr, nc+dc), (pr-dr, pc-dc)):
+                        if (0 <= rr < size and 0 <= cc < size and
+                            board[rr][cc] and board[rr][cc][0] == player):
+                            vuln += 1
+
+    # ---------- ponderazione dinamica fase di gioco ----------
+    phase = len(empty) / 25.0
+    w_piece = 6 + 6 * phase          # 12 in apertura → 6 in end-game
+    w_pip   = 1 + 2 * (1 - phase)    # 1  in apertura → 3 in end-game
+
+    score = (
+        w_piece * (mine - opps) +
+        w_pip   * (mine_pip - opp_pip) +
+        2 * (mob - opp_mob) +
+        7 * (cap_other - opp_cap_other) +
+        12 * (cap6 - opp_cap6) +
+        12 * (th - opp_th) -
+        5 * vuln
+    )
+    return score

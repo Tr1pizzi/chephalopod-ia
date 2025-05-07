@@ -1,3 +1,33 @@
+betad vs delta -> 2 - 0
+alpha vs delta -> 1 - 1
+alphab vs delta -> 2 - 0
+beta vs delta -> 2 - 0
+betab vs delta -> 2 - 0
+betac vs delta -> 2 - 0
+gamma vs delta -> 0 - 2
+
+--- Totali ---
+alpha: 1 vittorie
+alphab: 2 vittorie
+beta: 2 vittorie
+betab: 2 vittorie
+betac: 2 vittorie
+betad: 2 vittorie
+delta: 3 vittorie
+gamma: 0 vittorie
+
+--- Tabella dei Risultati ---
+               alpha  alphab    beta   betab   betac   betad   gamma   delta
+alpha            ---     0-0     0-0     0-0     0-0     0-0     0-0     1-1
+alphab           0-0     ---     0-0     0-0     0-0     0-0     0-0     2-0
+beta             0-0     0-0     ---     0-0     0-0     0-0     0-0     2-0
+betab            0-0     0-0     0-0     ---     0-0     0-0     0-0     2-0
+betac            0-0     0-0     0-0     0-0     ---     0-0     0-0     2-0
+betad            0-0     0-0     0-0     0-0     0-0     ---     0-0     2-0
+gamma            0-0     0-0     0-0     0-0     0-0     0-0     ---     0-2
+delta            1-1     0-2     0-2     0-2     0-2     0-2     2-0     ---
+
+
 import math
 import itertools
 import time
@@ -96,90 +126,64 @@ def get_adjacent_cells(r, c, size=5):
     return adj
 
     
-def h(board_state, player):
-    size     = board_state.size
-    board    = board_state.board
-    opponent = "Red" if player == "Blue" else "Blue"
+def h(state, player):
+    size   = state.size
+    board  = state.board
+    opp    = "Red" if player=="Blue" else "Blue"
 
-    # conteggi base
-    my_pieces = my_pips = op_pieces = op_pips = 0
-    my_caps = op_caps = my_6 = op_6 = 0
-    center_bonus = mobility = opp_mob = vulnerable = 0
-    empty_cells  = []
+    empty  = []
+    mine = opps = mine_pip = opp_pip = 0
+    mob = opp_mob = cap = opp_cap = vuln = opp_th = th = cap6, opp_cap6, cap_other = 0
 
-    dirs = ((1,0), (-1,0), (0,1), (0,-1))
-
-    # ---------- prima scansione ----------
     for r in range(size):
         for c in range(size):
             cell = board[r][c]
             if cell is None:
-                empty_cells.append((r, c))
-                continue
-
-            owner, pip = cell
-            if owner == player:
-                my_pieces += 1
-                my_pips   += pip
+                empty.append((r,c)); continue
+            own, pip = cell
+            if own == player:
+                mine += 1; mine_pip += pip
             else:
-                op_pieces += 1
-                op_pips   += pip
-
-            if 1 <= r < size-1 and 1 <= c < size-1:
-                center_bonus += 2 if owner == player else -2
+                opps += 1; opp_pip  += pip
 
             # mobilità
-            for dr, dc in dirs:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < size and 0 <= nc < size and board[nr][nc] is None:
-                    if owner == player:
-                        mobility += 1
+            for dr,dc in ((1,0),(-1,0),(0,1),(0,-1)):
+                nr,nc = r+dr, c+dc
+                if 0<=nr<size and 0<=nc<size and board[nr][nc] is None:
+                    if own == player:
+                        mob += 1
                     else:
-                        opp_mob  += 1
+                        opp_mob += 1
 
-    # ---------- catture potenziali da celle vuote ----------
-    for (r, c) in empty_cells:
-        adj = [board[r+dr][c+dc] for dr, dc in dirs
-               if 0 <= r+dr < size and 0 <= c+dc < size and board[r+dr][c+dc]]
-
+    # minacce di cattura
+    for (r,c) in empty:
+        adj = [(board[r+dr][c+dc])
+               for dr,dc in ((1,0),(-1,0),(0,1),(0,-1))
+               if 0<=r+dr<size and 0<=c+dc<size and board[r+dr][c+dc]]
         for i in range(len(adj)):
-            ai = adj[i]
-            for j in range(i+1, len(adj)):
-                aj = adj[j]
-                ps = ai[1] + aj[1]
-                if ps > 6:
-                    continue
+            for j in range(i+1,len(adj)):
+                s = adj[i][1] + adj[j][1]
+                if s<=6:
+                    w = 4 if s==6 else 1
+                    if adj[i][0]==adj[j][0]==player:
+                        cap += w
+                    elif adj[i][0]==adj[j][0]==opp:
+                        opp_cap += w
+        # pre-threat difensiva
+        if len(adj)==1 and adj[0][1]<=5:
+            th += 6-adj[0][1]   # quanto manca a 6
+        elif len(adj)==1:
+            opp_th += adj[0][1]-1
 
-                if   ai[0] == aj[0] == player:   # mia cattura
-                    my_caps += 1
-                    if ps == 6: my_6 += 1
-                elif ai[0] == aj[0] == opponent: # cattura avversaria
-                    op_caps += 1
-                    if ps == 6: op_6 += 1
+    phase = len(empty)/25
+    w_piece = 6 + 6*phase
+    w_pip   = 1 + 2*(1-phase)
 
-    # ---------- vulnerabilità rapida ----------
-    # se un mio dado ha ≥2 adiacenti avversari con somma ≤6 è vulnerabile
-    for r in range(size):
-        for c in range(size):
-            cell = board[r][c]
-            if cell and cell[0] == player:
-                enemy_vals = [board[r+dr][c+dc][1]
-                              for dr, dc in dirs
-                              if 0 <= r+dr < size and 0 <= c+dc < size and
-                                 board[r+dr][c+dc] and board[r+dr][c+dc][0] == opponent]
-                if len(enemy_vals) >= 2:
-                    enemy_vals.sort()
-                    if enemy_vals[0] + enemy_vals[1] <= 6:
-                        vulnerable += 1
-
-    # ---------- funzione di valutazione ----------
     score = (
-              10 * (my_pieces - op_pieces) +
-      3 * (my_pips   - op_pips)   +
-     center_bonus                 +
-      8 * (my_caps - op_caps)     +   
-     13 * (my_6   - op_6)         +  
-      3 * (mobility - opp_mob)    +   
-     -4 * vulnerable                  
+        w_piece*(mine-opps) + w_pip*(mine_pip-opp_pip)
+        + 2*(mob-opp_mob)
+        + 6*(cap-opp_cap)
+        - 4*vuln
+        - 2*opp_th + 2*th
     )
     return score

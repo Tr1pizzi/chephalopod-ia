@@ -1,4 +1,34 @@
-import math
+betad vs delta -> 1 - 1
+alpha vs delta -> 1 - 1
+alphab vs delta -> 0 - 2
+beta vs delta -> 0 - 2
+betab vs delta -> 1 - 1
+betac vs delta -> 2 - 0
+gamma vs delta -> 0 - 2
+
+--- Totali ---
+alpha: 1 vittorie
+alphab: 0 vittorie
+beta: 0 vittorie
+betab: 1 vittorie
+betac: 2 vittorie
+betad: 1 vittorie
+delta: 9 vittorie
+gamma: 0 vittorie
+
+--- Tabella dei Risultati ---
+               alpha  alphab    beta   betab   betac   betad   gamma   delta
+alpha            ---     0-0     0-0     0-0     0-0     0-0     0-0     1-1
+alphab           0-0     ---     0-0     0-0     0-0     0-0     0-0     0-2
+beta             0-0     0-0     ---     0-0     0-0     0-0     0-0     0-2
+betab            0-0     0-0     0-0     ---     0-0     0-0     0-0     1-1
+betac            0-0     0-0     0-0     0-0     ---     0-0     0-0     2-0
+betad            0-0     0-0     0-0     0-0     0-0     ---     0-0     1-1
+gamma            0-0     0-0     0-0     0-0     0-0     0-0     ---     0-2
+delta            1-1     2-0     2-0     1-1     0-2     1-1     2-0     ---
+10 3 7 12 2 3 6
+
+iimport math
 import itertools
 import time
 # The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
@@ -50,11 +80,11 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             (r, c), pip, captured = a
             center_bonus = (1 <= r < 4 and 1 <= c < 4)
             return len(captured) * 10 + center_bonus
-        actions = sorted(cal_actions(state), key=move_priority, reverse=True)
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
 
         v, move = -infinity, None
         for a in actions:
-            v2, _ = min_value(result(state, a), alpha, beta, depth+1)
+            v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
             if v2 > v:
                 v, move = v2, a
                 alpha = max(alpha, v)
@@ -74,9 +104,9 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             center_bonus = (1 <= r < 4 and 1 <= c < 4)
             return len(captured) * 10 + center_bonus
 
-        actions = sorted(cal_actions(state), key=move_priority, reverse=True)
+        actions = sorted(game.actions(state), key=move_priority, reverse=True)
         for a in actions:
-            v2, _ = max_value(result(state, a), alpha, beta, depth + 1)
+            v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
             if v2 < v:
                 v, move = v2, a
                 beta = min(beta, v)
@@ -103,7 +133,7 @@ def h(board_state, player):
     opponent = "Red" if player == "Blue" else "Blue"
 
     my_pieces = my_pips = op_pieces = op_pips = 0
-    my_caps = op_caps = center_bonus = vulnerable = mobility = my_6 = op_6 = 0
+    my_caps = op_caps = center_bonus = vulnerable = mobility = op_pips = my_6 = op_6 = dv = 0
     empty_cells = []
     adjacent_cache = {}  # cache per celle adiacenti
 
@@ -147,7 +177,7 @@ def h(board_state, player):
                 if pip_sum <= 6:
                     if a[0] != player and b[0] != player:
                         my_caps += 1
-                        if pip_sum == 6:
+                        if pip_sum==6:
                             my_6+=1
                     if a[0] != opponent and b[0] != opponent:
                         op_caps += 1
@@ -165,61 +195,20 @@ def h(board_state, player):
                            if board[r2][c2] and board[r2][c2][0] != player]
                 for i in range(len(enemies)):
                     for j in range(i + 1, len(enemies)):
-                        if enemies[i][1] + enemies[j][1] <= 6:
+                        val = enemies[i][1] + enemies[j][1]
+                        if val <= 6:
                             vulnerable += 1
+                            if val == 6:
+                                dv+=1
 
     score = (
         10 * (my_pieces - op_pieces) +
-        2 * (my_pips - op_pips) +
+        3 * (my_pips - op_pips) +
         center_bonus +
-        4 * (my_caps - op_caps) +
+        7 * (my_caps - op_caps) +
         12 * (my_6-op_6) +
-        3 * mobility -
-        5 * vulnerable
+        2 * mobility -
+        3 * vulnerable -
+        6 * dv
     )
     return score
-
-def cal_actions(state):
-    size = state.size
-    board = state.board
-    moves = []
-    directions = [(-1,0), (1,0), (0,-1), (0,1)]
-
-    for r in range(size):
-        for c in range(size):
-            if board[r][c] is None:  # cella vuota
-                adjacent = []
-                for dr, dc in directions:
-                    nr, nc = r + dr, c + dc
-                    if 0 <= nr < size and 0 <= nc < size:
-                        cell = board[nr][nc]
-                        if cell is not None:
-                            adjacent.append(((nr, nc), cell[1]))  # posizione + pip
-
-                capture_moves = []
-                if len(adjacent) >= 2:
-                    for comb in itertools.combinations(adjacent, 2):
-                        pip_sum = comb[0][1] + comb[1][1]
-                        if 2 <= pip_sum <= 6:
-                            positions = (comb[0][0], comb[1][0])
-                            capture_moves.append(((r, c), pip_sum, positions))
-
-                if capture_moves:
-                    moves.extend(capture_moves)
-                else:
-                    moves.append(((r, c), 1, ()))  # mossa non catturante
-    return moves
-def result(state, move):
-    (r, c), pip, captured = move
-    new_board = [row[:] for row in state.board]
-    new_board[r][c] = (state.to_move, pip)
-    for (rr, cc) in captured:
-        new_board[rr][cc] = None
-
-    new_state = state.__class__(
-        size=state.size,
-        board=new_board,
-        to_move="Red" if state.to_move == "Blue" else "Blue",
-        last_move=((r, c), captured)
-    )
-    return new_state

@@ -431,21 +431,16 @@ players = {
 }
 
 matchups = [
-    ("alpha", "betad"),
-    ("alphab", "betad"),
-    ("beta", "betad"),
-    ("betab", "betad"),
-    ("betac", "betad"),
+
+    ("betad", "alpha"),    
+    ("betad", "alphab"),
+    ("betad", "beta"),
+    ("betad", "betab"),
+    ("betad", "betac"),
+    ("betad", "betad"),
     ("betad", "gamma"),
     ("betad", "delta"),
 
-    
-    ("alpha", "delta"),
-    ("alphab", "delta"),
-    ("beta", "delta"),
-    ("betab", "delta"),
-    ("betac", "delta"),
-    ("gamma", "delta"),
 ]
 
 def simulate_game(args):

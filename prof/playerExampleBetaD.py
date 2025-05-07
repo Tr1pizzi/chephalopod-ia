@@ -1,20 +1,18 @@
 import math
-# The moves of player have the form (x,y), where y is the column number and x the row number (starting with 0)
 infinity = math.inf
-def playerStrategy(game, state):
-    # Conta quante pedine sono presenti sulla board
-    pieces_on_board = sum(1 for row in state.board for cell in row if cell is not None)
-    # Cutoff dinamico in base alla densità della board
-    if pieces_on_board < 17:
-        depth = 4  # early game
-    elif pieces_on_board < 19:
-        depth = 5  # mid game
-    elif pieces_on_board < 22:
-        depth = 6  # mid game
-    else:
-        depth = 8  # late game
 
-    # Chiamata all'alpha-beta search
+def playerStrategy(game, state):
+    #Contando il numero di pedine sulla board siamo in grado di decidere quanto andare in profondità nella ricerca evitando il timeout 
+    pieces_on_board = sum(1 for row in state.board for cell in row if cell is not None)
+    if pieces_on_board < 17:
+        depth = 4
+    elif pieces_on_board < 19:
+        depth = 5
+    elif pieces_on_board < 22:
+        depth = 6
+    else:
+        depth = 8
+
     value, move = h_alphabeta_search(game, state, cutoff_depth(depth))
     return move
 
@@ -44,12 +42,7 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
         if cutoff(game, state, depth):
             return h(state, player), None
         
-        def move_priority(a):
-            (r, c), pip, captured = a
-            center_bonus = (1 <= r < 4 and 1 <= c < 4)
-            return len(captured) * 10 + center_bonus
         actions = sorted(game.actions(state), key=move_priority, reverse=True)
-
         v, move = -infinity, None
         for a in actions:
             v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
@@ -81,7 +74,11 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             if v <= alpha:
                 return v, move
         return v, move
-
+    
+    def move_priority(a):
+        (r, c), pip, captured = a
+        center_bonus = (1 <= r < 4 and 1 <= c < 4)
+        return len(captured) * 10 + center_bonus
     return max_value(state, -infinity, +infinity, 0)
 
 # Funzioni di utilità per il Cephalopod
