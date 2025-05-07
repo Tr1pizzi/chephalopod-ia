@@ -41,8 +41,9 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             return game.utility(state, player), None
         if cutoff(game, state, depth):
             return h(state, player), None
-        
+        #ordina le azioni disponibili in ordine di punteggio. aiuta la ricerca dal momento che i piazzamenti meno convenienti verranno tagliati prima
         actions = sorted(game.actions(state), key=move_priority, reverse=True)
+
         v, move = -infinity, None
         for a in actions:
             v2, _ = min_value(game.result(state, a), alpha, beta, depth+1)
@@ -59,8 +60,10 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
             return game.utility(state, player), None
         if cutoff(game, state, depth):
             return h(state, player), None
+        #ordina le azioni disponibili in ordine di punteggio. aiuta la ricerca dal momento che i piazzamenti meno convenienti verranno tagliati prima
+        actions = sorted(game.actions(state), key=move_priority, reverse=True) 
+        
         v, move = +infinity, None
-        actions = sorted(game.actions(state), key=move_priority, reverse=True)
         for a in actions:
             v2, _ = max_value(game.result(state, a), alpha, beta, depth + 1)
             if v2 < v:
@@ -70,13 +73,15 @@ def h_alphabeta_search(game, state, cutoff=cutoff_depth(4)):
                 return v, move
         return v, move
     
+    #la priorità viene data alle mosse che prevedono un piazzamento al centro e le catture di altri dadi
     def move_priority(a):
-        (r, c), pip, captured = a
+        (r, c), _, captured = a
         center_bonus = (1 <= r < 4 and 1 <= c < 4)
         return len(captured) * 10 + center_bonus
+    
     return max_value(state, -infinity, +infinity, 0)
 
-# Funzioni di utilità per il Cephalopod
+#restituisce tutte le celle adiacenti
 def get_adjacent_cells(r, c, size=5):
     adj = []
     for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -86,25 +91,23 @@ def get_adjacent_cells(r, c, size=5):
     return adj
 
     
-# Esempio di integrazione in playingStrategies:
+#euristica
+#dopo vari test l'euristica migliore risulta quella avente un approccio aggressivo e semplice rispetto ad euristiche aventi approcci passivi, difensivi o complessi
 def h(board_state, player):
-    # Estrai la matrice grezza dal Board
     size = board_state.size
-    board = board_state.board  # matrice size×size di None o (owner, pip)
+    board = board_state.board 
     opponent = "Red" if player == "Blue" else "Blue"
     
     my_caps = op_caps = center_bonus = my_pieces = my_pips = op_pieces = op_pips = my_6 = op_6 = 0
     empty_cells = []
-    # Converti in formato atteso da evaluate_state / Differenza pezzi e somma pip
+
     for r in range(size):
         for c in range(size):
             cell = board[r][c]
             if cell is None:
-                empty_cells.append((r,c))
+                empty_cells.append((r,c)) #per evitare cicli inutili, le celle vuote vengono salvate e utilizzate per la cattura
             else:
-                """"
-                valutazione in base ai pezzi
-                """
+                #valutazione in base ai pezzi
                 if cell[0] == player:
                     my_pieces += 1
                     my_pips   += cell[1]
@@ -112,16 +115,11 @@ def h(board_state, player):
                     op_pieces += 1
                     op_pips   += cell[1]
 
-                """"
-                controllo centro
-                """
+                #valutazione in base al controllo del centro
                 if 1 <= r < size - 1 and 1 <= c < size - 1:
                     center_bonus +=  2 if cell[0] == player else -2
-
-                """"
-                cattura
-                """
     
+    #valutazione in base alla cattura
     for (r, c) in empty_cells:
         adjacent = get_adjacent_cells(r, c, size)
         for (r2, c2) in adjacent:
@@ -142,6 +140,7 @@ def h(board_state, player):
                             if val == 6:
                                 op_6 += 1
 
+    #calcolo score
     score = (
         10 * (my_pieces - op_pieces) +
          3 * (my_pips   - op_pips) +
