@@ -10,7 +10,7 @@ import random, itertools, copy, concurrent.futures, threading, time
 # EXAMPLE VERSION
 # #######################
 import playerExampleDelta as playerBmodule
-import playerExampleBetaD as playerRmodule
+import Cordopatri_263779__Gimbri_264441 as playerRmodule
 # #######################
 
 class Game:

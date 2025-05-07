@@ -425,7 +425,7 @@ players = {
     "beta": "playerExampleBeta",
     "betab": "playerExampleBetaB",
     "betac": "playerExampleBetaC",
-    "betad": "playerExampleBetaD",
+    "betad": "Cordopatri_263779__Gimbri_264441",
     "gamma": "playerExampleGamma",
     "delta": "playerExampleDelta",
 }

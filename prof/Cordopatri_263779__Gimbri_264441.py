@@ -1,3 +1,9 @@
+# Alessandro Cordopatri 263779
+# Andrea Domenico Gimbri 264441
+
+#Dal momento che c'è un vincolo di risposta di 3 secondi e non sapendo quale sia la macchina sulla quale verra tenuta la competizione,
+#sono stati impostati i livelli di profondità di simulazione dinamici sulla base delle macchine a nostra disposizione.
+#I valori sono facilmente modificabili per evitare che si verifichino casi di time-out. Cordiali saluti.
 import math
 infinity = math.inf
 
@@ -92,13 +98,16 @@ def get_adjacent_cells(r, c, size=5):
 
     
 #euristica
-#dopo vari test l'euristica migliore risulta quella avente un approccio aggressivo e semplice rispetto ad euristiche aventi approcci passivi, difensivi o complessi
+#dopo vari test l'euristica migliore risulta quella avente un approccio aggressivo e semplice rispetto ad euristiche aventi approcci:
+# - passivi (con calcolo della mobilità, ovvero la potenzialità del pezzo per future acquisizioni)
+# - difensivi (con calcolo della vulnerabilità dei pezzi e potenziali 6 dell'avversario)
+# - complessi (modifiche dei valori di score in base alla fase della partita)
 def h(board_state, player):
     size = board_state.size
     board = board_state.board 
     opponent = "Red" if player == "Blue" else "Blue"
     
-    my_caps = op_caps = center_bonus = my_pieces = my_pips = op_pieces = op_pips = my_6 = op_6 = 0
+    my_caps = op_caps = my_center = op_center = my_pieces = my_pips = op_pieces = op_pips = my_6 = op_6 = 0
     empty_cells = []
 
     for r in range(size):
@@ -117,7 +126,10 @@ def h(board_state, player):
 
                 #valutazione in base al controllo del centro
                 if 1 <= r < size - 1 and 1 <= c < size - 1:
-                    center_bonus +=  2 if cell[0] == player else -2
+                    if cell[0] == player:
+                        my_center += 1
+                    else:
+                        op_center += 1
     
     #valutazione in base alla cattura
     for (r, c) in empty_cells:
@@ -140,13 +152,12 @@ def h(board_state, player):
                             if val == 6:
                                 op_6 += 1
 
-    #calcolo score
+    #calcolo valore finale
     score = (
-        10 * (my_pieces - op_pieces) +
-         3 * (my_pips   - op_pips) +
-        center_bonus +
-         7 * (my_caps - op_caps)+ 
-         12 * (my_6-op_6)
-
+        10 * (my_pieces - op_pieces) + #pezzi finali
+        3 * (my_pips - op_pips) + #valori finali
+        2 * (my_center - op_center) + #bonus valori centrali
+        7 * (my_caps - op_caps)+ #valori catture
+        12 * (my_6-op_6) # valori catture con 6
     )
     return score
